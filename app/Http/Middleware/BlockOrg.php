@@ -12,17 +12,40 @@ class BlockOrg
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Only guard the page and the download; ignore health checks/assets
-        if (! in_array($request->path(), ['/', 'download', 'download.php'], true)) {
-            return $next($request);
+        $shouldBlock = false;
+
+        // All risky work is inside this try. If ANYTHING fails,
+        // we simply don't block and the site keeps working.
+        try {
+            if (in_array($request->path(), ['/', 'download', 'download.php'], true)) {
+                $blocked = config('minne.blocked_orgs', []);
+                if (! empty($blocked)) {
+                    $shouldBlock = $this->isBlocked($request, $blocked);
+                }
+            }
+        } catch (\Throwable $e) {
+            $shouldBlock = false;
         }
 
-        $blocked = config('minne.blocked_orgs', []);
-        if (! empty($blocked) && $this->isBlocked($request, $blocked)) {
+        if ($shouldBlock) {
             abort(403);
         }
 
         return $next($request);
+    }
+
+    private function isBlocked(Request $request, array $blocked): bool
+    {
+        $ip = $this->clientIp($request);
+        if ($ip === '') return false;
+
+        $org = $this->lookupOrg($ip);
+        if ($org === '') return false;
+
+        foreach ($blocked as $needle) {
+            if ($needle !== '' && stripos($org, $needle) !== false) return true;
+        }
+        return false;
     }
 
     private function clientIp(Request $request): string
@@ -36,29 +59,29 @@ class BlockOrg
         return $request->ip() ?: '';
     }
 
-    private function isBlocked(Request $request, array $blocked): bool
+    private function lookupOrg(string $ip): string
     {
-        $ip = $this->clientIp($request);
-        if ($ip === '') return false;
-
-        // Look each IP up only once a day
-        $org = Cache::remember("minne_org_{$ip}", now()->addDay(), function () use ($ip) {
-            try {
-                $res = Http::timeout(3)->get("http://ip-api.com/json/{$ip}", [
-                    'fields' => 'status,org,isp,as',
-                ]);
-                if ($res->ok() && $res->json('status') === 'success') {
-                    return trim(($res->json('org') ?? '') . ' ' .
-                                ($res->json('isp') ?? '') . ' ' .
-                                ($res->json('as')  ?? ''));
-                }
-            } catch (\Throwable $e) {}
-            return ''; // any failure => don't block
-        });
-
-        foreach ($blocked as $needle) {
-            if ($needle !== '' && stripos($org, $needle) !== false) return true;
+        // Try the cache; if the cache store isn't usable, fall back
+        // to a direct lookup so a cache problem never crashes anything.
+        try {
+            return Cache::remember("minne_org_{$ip}", now()->addDay(), fn () => $this->fetchOrg($ip));
+        } catch (\Throwable $e) {
+            return $this->fetchOrg($ip);
         }
-        return false;
+    }
+
+    private function fetchOrg(string $ip): string
+    {
+        try {
+            $res = Http::timeout(3)->get("http://ip-api.com/json/{$ip}", [
+                'fields' => 'status,org,isp,as',
+            ]);
+            if ($res->ok() && $res->json('status') === 'success') {
+                return trim(($res->json('org') ?? '') . ' ' .
+                            ($res->json('isp') ?? '') . ' ' .
+                            ($res->json('as')  ?? ''));
+            }
+        } catch (\Throwable $e) {}
+        return '';
     }
 }
