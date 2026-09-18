@@ -14,8 +14,6 @@ class BlockOrg
     {
         $shouldBlock = false;
 
-        // All risky work is inside this try. If ANYTHING fails,
-        // we simply don't block and the site keeps working.
         try {
             if (in_array($request->path(), ['/', 'download', 'download.php'], true)) {
                 $blocked = config('minne.blocked_orgs', []);
@@ -24,7 +22,7 @@ class BlockOrg
                 }
             }
         } catch (\Throwable $e) {
-            $shouldBlock = false;
+            $shouldBlock = false; // never crash the site
         }
 
         if ($shouldBlock) {
@@ -61,12 +59,10 @@ class BlockOrg
 
     private function lookupOrg(string $ip): string
     {
-        // Try the cache; if the cache store isn't usable, fall back
-        // to a direct lookup so a cache problem never crashes anything.
         try {
             return Cache::remember("minne_org_{$ip}", now()->addDay(), fn () => $this->fetchOrg($ip));
         } catch (\Throwable $e) {
-            return $this->fetchOrg($ip);
+            return $this->fetchOrg($ip); // cache problem? just look it up directly
         }
     }
 
