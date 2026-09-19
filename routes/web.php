@@ -50,6 +50,9 @@ Route::get('/', function (Request $request) {
 
     if ($request->query('ref')) {
         Cookie::queue('minne_ref', $request->query('ref'), 60 * 24 * 30); // remember 30 days
+        $ip = trim(explode(',', (string) $request->header('X-Forwarded-For', $request->ip()))[0]);
+        $ua = substr((string) $request->userAgent(), 0, 200);
+        \Illuminate\Support\Facades\Log::info("VISIT tag={$tag} ip={$ip} ua={$ua}");
         minne_notify("👀 <b>Page visit</b>\nTag: <b>{$tag}</b>");
     }
 
