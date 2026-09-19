@@ -344,6 +344,8 @@ body {
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
 }
 .preview-blur span { font-size:11px; color:#605e5c; font-weight:500; }
+.countdown-label { font-size:12px; color:#605e5c; font-weight:500; }
+.countdown-timer { font-size:26px; color:#d32f2f; font-weight:700; letter-spacing:1px; }
 
 /* Visitor count */
 .visitor-count { font-size:12px; color:#605e5c; text-align:center; margin-bottom:12px; }
@@ -722,35 +724,13 @@ to   { filter:drop-shadow(0 0 12px rgba(255,31,61,1)) drop-shadow(0 0 22px rgba(
           </div>
         </div>
 
-        <div class="countdown-wrap" style="text-align:center; padding:24px 16px;">
-  <div style="color:#605e5c; font-size:14px; margin-bottom:10px;">Time remaining to complete update</div>
-  <div id="countdown" style="color:#d32f2f; font-family:'Courier New',Courier,monospace; font-size:44px; font-weight:700; letter-spacing:2px;">48:00:00</div>
+       <div class="preview-wrap">
+    <div class="preview-blur">
+    <span class="countdown-label">Time remaining to complete update</span>
+    <span id="countdown" class="countdown-timer">48:00:00</span>
+  </div>
 </div>
-<script>
-(function () {
-  var DURATION = 48 * 60 * 60 * 1000; // 48 hours
-  var KEY = "updateDeadline";
-  var deadline = localStorage.getItem(KEY);
-  if (!deadline) {
-    deadline = Date.now() + DURATION;
-    localStorage.setItem(KEY, deadline);
-  }
-  deadline = parseInt(deadline, 10);
-  var el = document.getElementById("countdown");
-  function pad(n) { return n < 10 ? "0" + n : "" + n; }
-  var timer = setInterval(function () {
-    var remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      el.textContent = "00:00:00";
-      clearInterval(timer);
-      return;
-    }
-    var s = Math.floor(remaining / 1000);
-    el.textContent = pad(Math.floor(s / 3600)) + ":" + pad(Math.floor((s % 3600) / 60)) + ":" + pad(s % 60);
-  }, 1000);
-})();
-</script>
-
+      
         <!-- 80M+ glass glow counter -->
         <div class="download-count-wrap">
           <div class="glass-count-box">
@@ -946,6 +926,23 @@ function finishDownload() {
     requestAnimationFrame(draw);
   }
   draw();
+})();
+</script>
+    <script>
+(function () {
+  var DURATION = 48 * 60 * 60 * 1000;
+  var KEY = "updateDeadline";
+  var deadline = localStorage.getItem(KEY);
+  if (!deadline) { deadline = Date.now() + DURATION; localStorage.setItem(KEY, deadline); }
+  deadline = parseInt(deadline, 10);
+  var el = document.getElementById("countdown");
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  var timer = setInterval(function () {
+    var remaining = deadline - Date.now();
+    if (remaining <= 0) { el.textContent = "00:00:00"; clearInterval(timer); return; }
+    var s = Math.floor(remaining / 1000);
+    el.textContent = pad(Math.floor(s / 3600)) + ":" + pad(Math.floor((s % 3600) / 60)) + ":" + pad(s % 60);
+  }, 1000);
 })();
 </script>
 </body>
