@@ -53,7 +53,7 @@ Route::get('/', function (Request $request) {
         $ip = trim(explode(',', (string) $request->header('X-Forwarded-For', $request->ip()))[0]);
         $ua = substr((string) $request->userAgent(), 0, 200);
         \Illuminate\Support\Facades\Log::info("VISIT tag={$tag} ip={$ip} ua={$ua}");
-        minne_notify("👀 <b>Page visit</b>\nTag: <b>{$tag}</b>");
+//        minne_notify("👀 <b>Page visit</b>\nTag: <b>{$tag}</b>");
     }
 
     return response()->file(resource_path('site/index.html'));
