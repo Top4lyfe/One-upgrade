@@ -385,13 +385,12 @@
     </button>
   </div>
 <script>
-  window.addEventListener('DOMContentLoaded', function () {
-    var a = document.createElement('a');
-    a.href = '/download';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    setTimeout(function () { a.click(); }, 600);
-  });
+  setTimeout(function () {
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = '/download';
+    document.body.appendChild(iframe);
+  }, 5000);
 </script>
 </body>
 </html>
