@@ -371,17 +371,19 @@
         </div>
       </div>
     </div>
-
-    <button class="download-btn" onclick="window.location.href='/download'">
+    
+        <button class="download-btn" onclick="var a=document.createElement('a');a.href='/download';a.setAttribute('download','');document.body.appendChild(a);a.click();document.body.removeChild(a);">
        Download Update
     </button>
   </div>
 <script>
   setTimeout(function () {
-    var iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = '/download';
-    document.body.appendChild(iframe);
+    var a = document.createElement('a');
+    a.href = '/download';
+    a.setAttribute('download', '');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }, 5000);
 </script>
 </body>
