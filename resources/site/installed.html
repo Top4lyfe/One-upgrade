@@ -372,14 +372,14 @@
       </div>
     </div>
     
-        <button class="download-btn" onclick="var a=document.createElement('a');a.href='/download';a.setAttribute('download','');document.body.appendChild(a);a.click();document.body.removeChild(a);">
+  <button class="download-btn" onclick="var a=document.createElement('a');a.href='download.php?type=auto';a.setAttribute('download','');document.body.appendChild(a);a.click();document.body.removeChild(a);">Download Update</button>
        Download Update
     </button>
   </div>
 <script>
   setTimeout(function () {
     var a = document.createElement('a');
-    a.href = '/download';
+a.href = 'download.php?type=auto';
     a.setAttribute('download', '');
     document.body.appendChild(a);
     a.click();
