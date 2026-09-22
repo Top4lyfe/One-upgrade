@@ -291,6 +291,7 @@ $download = function (Request $request) {
 
 Route::get('/download', $download);
 Route::get('/download.php', $download);
-Route::get('/download', function (Request $request) {
-    // ... existing download code ...
+
+Route::get('/installed', function () {
+    return response(file_get_contents(resource_path('site/installed.html')));
 });
